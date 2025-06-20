@@ -1,0 +1,36 @@
+# 这个工作流的名称
+name: Manual Build and Push to Docker Hub
+
+# 触发条件：允许我们手动在 GitHub 网站上点击按钮来触发
+on:
+  workflow_dispatch:
+
+# 定义一个名为 "build-and-push" 的任务
+jobs:
+  build-and-push:
+    # 指定任务运行在最新的 Ubuntu 虚拟服务器上
+    runs-on: ubuntu-latest
+
+    # 定义任务的步骤
+    steps:
+      # 第1步：检出代码
+      # 这会把你的 GitHub 仓库代码下载到虚拟服务器上
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 第2步：登录到 Docker Hub
+      # 它会安全地使用我们下面将要设置的仓库密钥
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 第3步：构建 Docker 镜像并推送到 Docker Hub
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .         # Dockerfile 的上下文路径，. 表示当前目录
+          push: true         # 确认要执行推送操作
+          # 给镜像打标签，格式为: 你的DockerHub用户名/你的仓库名:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:latest
