@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-# --- 辅助函数 ---
+# --- 辅助函数 (保持不变) ---
 validate_uuid() {
   if ! echo "$1" | grep -Eq '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'; then
     echo "错误: 您提供的 UUID '$1' 格式不正确。" >&2
@@ -17,13 +17,12 @@ validate_domain() {
   return 0
 }
 
-# --- 主要逻辑 ---
+# --- 主要逻辑 (调用 xray) ---
 
-# 1. 确定域名 (FINAL_DOMAIN)
+# 1. 确定域名 (逻辑不变)
 FINAL_DOMAIN=""
 DEFAULT_DOMAIN="pull.free.video.10010.com"
-
-# (域名获取逻辑: URL > 环境变量 > 默认值)
+# ... (省略域名获取的详细代码，保持和上一版完全一样) ...
 if [ -n "$V2RAY_DOMAIN_URL" ]; then
   echo "INFO: 尝试从 URL ($V2RAY_DOMAIN_URL) 获取域名..." >&2
   FETCHED_DOMAIN=$(wget -qO- --timeout=5 --tries=1 "$V2RAY_DOMAIN_URL" | xargs)
@@ -33,7 +32,6 @@ if [ -n "$V2RAY_DOMAIN_URL" ]; then
     echo "WARNING: 无法从 URL 获取有效域名，将尝试下一优先级。" >&2
   fi
 fi
-
 if [ -z "$FINAL_DOMAIN" ] && [ -n "$V2RAY_DOMAIN" ]; then
   echo "INFO: 尝试使用环境变量 V2RAY_DOMAIN..." >&2
   if validate_domain "$V2RAY_DOMAIN"; then
@@ -42,13 +40,12 @@ if [ -z "$FINAL_DOMAIN" ] && [ -n "$V2RAY_DOMAIN" ]; then
     echo "ERROR: 环境变量中的域名 '$V2RAY_DOMAIN' 格式无效。" >&2; exit 1
   fi
 fi
-
 if [ -z "$FINAL_DOMAIN" ]; then
   FINAL_DOMAIN="$DEFAULT_DOMAIN"
   echo "INFO: 未提供任何域名信息，将使用内置默认域名: $FINAL_DOMAIN" >&2
 fi
 
-# 2. 确定 UUID (FINAL_UUID)
+# 2. 确定 UUID (逻辑不变)
 DEFAULT_UUID="33809cd4-3095-447d-db67-0e607dd23d5b"
 if [ -n "$V2RAY_UUID" ]; then
   validate_uuid "$V2RAY_UUID"
@@ -57,24 +54,27 @@ else
   FINAL_UUID="$DEFAULT_UUID"
 fi
 
-# --- 生成配置并启动服务 ---
+# --- 生成配置并启动服务 (关键变化: 使用 xray) ---
 
-KEY_PAIR=$(/usr/bin/v2ray x25519)
+# 使用 xray 命令生成密钥对和 UUID
+KEY_PAIR=$(/usr/bin/xray x25519)
 PRIVATE_KEY=$(echo "$KEY_PAIR" | grep 'Private key' | awk '{print $3}')
 PUBLIC_KEY=$(echo "$KEY_PAIR" | grep 'Public key' | awk '{print $3}')
 
+# sed 替换逻辑不变
 sed -e "s/__UUID__/$FINAL_UUID/g" \
     -e "s/__PRIVATE_KEY__/$PRIVATE_KEY/g" \
     -e "s/__DOMAIN__/$FINAL_DOMAIN/g" \
     config.template.json > config.json
 
-# --- 生成并输出最终的详细配置信息 ---
-VLESS_URL="vless://${FINAL_UUID}@YOUR_SERVER_IP:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${FINAL_DOMAIN}&fp=chrome&pbk=${PUBLIC_KEY}&type=tcp#V2Ray_REALITY_$(date +%s)"
+# --- 输出最终信息 (逻辑不变，输出的标题依然可以是 V2Ray，方便用户理解) ---
+VLESS_URL="vless://${FINAL_UUID}@YOUR_SERVER_IP:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${FINAL_DOMAIN}&fp=chrome&pbk=${PUBLIC_KEY}&type=tcp#Xray_REALITY_$(date +%s)"
 
 echo ""
 echo "===================================================================="
-echo "          V2Ray VLESS REALITY 节点启动成功！"
+echo "          Xray (V2Ray-Compatible) VLESS REALITY 节点启动成功！"
 echo "===================================================================="
+# ... (省略详细参数的输出，保持和上一版完全一样) ...
 echo "详细参数:"
 echo "--------------------------------------------------------------------"
 echo "地址 (Address):      请填写您的服务器IP或已解析的域名"
@@ -97,7 +97,8 @@ echo "             警告: 请务必将链接中的 'YOUR_SERVER_IP'            
 echo "               替换为您的服务器公网 IP 地址后使用！             "
 echo ""
 echo "===================================================================="
-echo "V2Ray 核心正在启动..."
+echo "Xray-core 核心正在启动..."
 echo ""
 
-exec /usr/bin/v2ray run -config /etc/v2ray/config.json
+# 最终执行 xray run 命令
+exec /usr/bin/xray run -config /etc/v2ray/config.json
