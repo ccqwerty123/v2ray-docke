@@ -1,4 +1,4 @@
-# Dockerfile (v4 - 修复版，采用多阶段构建)
+# Dockerfile (最终修复版 v5)
 
 # --- 阶段1: 构建器 (Builder) ---
 # 使用一个临时的镜像，专门用于下载和解压
@@ -12,7 +12,6 @@ WORKDIR /tmp
 RUN wget https://github.com/v2fly/v2ray-core/releases/latest/download/v2ray-linux-64.zip -O v2ray.zip
 
 # 将 zip 文件解压到一个临时目录中
-# 这种分步操作比直接解压到 /usr/bin/ 更稳定，可以规避段错误
 RUN unzip v2ray.zip -d /v2ray-build
 
 
@@ -23,12 +22,13 @@ FROM alpine:3.20
 # 运行时需要 wget 来支持从 URL 获取域名
 RUN apk add --no-cache wget
 
-# 从第一阶段 (builder) 精准地复制我们需要的最终文件
-# 只拷贝 v2ray 和 v2ctl 这两个可执行程序
+# 从第一阶段 (builder) 只复制我们唯一需要的 v2ray 程序
 COPY --from=builder /v2ray-build/v2ray /usr/bin/
-COPY --from=builder /v2ray-build/v2ctl /usr/bin/
-# 确保文件有可执行权限
-RUN chmod +x /usr/bin/v2ray /usr/bin/v2ctl
+# (已移除对 v2ctl 的复制，因为它已不存在)
+
+# 确保 v2ray 文件有可执行权限
+RUN chmod +x /usr/bin/v2ray
+# (已移除对 v2ctl 的权限设置)
 
 # 设置工作目录并复制我们自己的配置文件和脚本
 WORKDIR /etc/v2ray
